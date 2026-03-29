@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrdMarket — Bitcoin Ordinals Marketplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#080808;--bg2:#0f0f0f;--bg3:#161616;--bg4:#1e1e1e;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.18);
+  --btc:#f7931a;--btc2:#e07b10;--text:#f0ede6;--muted:#555;--muted2:#888;
+  --green:#16a34a;--greenl:#22c55e;--red:#dc2626;--redl:#ef4444;
+  --radius:8px;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overflow-x:hidden;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:54px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:baseline;gap:2px;cursor:pointer;text-decoration:none;}
+.logo-ord{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;}
+.logo-market{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--btc);letter-spacing:1px;}
+.logo-tag{font-size:9px;color:var(--muted2);letter-spacing:2px;margin-left:10px;text-transform:uppercase;}
+.nav-links{display:flex;gap:2px;}
+.nlink{padding:6px 15px;font-size:12px;font-weight:500;color:var(--muted2);cursor:pointer;border-radius:6px;transition:all .15s;border:1px solid transparent;user-select:none;}
+.nlink:hover{color:var(--text);}
+.nlink.on{color:var(--text);background:var(--bg3);border-color:var(--border);}
+.nav-r{display:flex;align-items:center;gap:10px;}
+.btc-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted2);padding:6px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;}
+.btc-price span{color:var(--btc);}
+.btn-wallet{background:var(--btc);color:#000;font-family:'Inter',sans-serif;font-weight:700;font-size:11px;padding:8px 18px;border:none;border-radius:6px;cursor:pointer;transition:background .15s;}
+.btn-wallet:hover{background:var(--btc2);}
+.wallet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:600;align-items:center;justify-content:center;}
+.wallet-overlay.on{display:flex;}
+.wallet-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;width:380px;max-width:94vw;padding:28px 26px;}
+.wallet-modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.wallet-modal-title{font-size:17px;font-weight:700;}
+.wallet-modal-sub{font-size:12px;color:var(--muted2);margin-bottom:22px;line-height:1.5;}
+.wallet-close{background:var(--bg4);border:1px solid var(--border);color:var(--muted2);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.wallet-close:hover{color:var(--text);border-color:var(--border2);}
+.wallet-option{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;margin-bottom:10px;}
+.wallet-option:last-child{margin-bottom:0;}
+.wallet-option:hover{border-color:var(--btc);background:var(--bg4);}
+.wallet-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.wallet-icon.unisat{background:linear-gradient(135deg,#1a1a2e,#16213e);}
+.wallet-icon.xverse{background:linear-gradient(135deg,#0d0d1a,#1a0d2e);}
+.wallet-name{font-size:14px;font-weight:600;margin-bottom:2px;}
+.wallet-desc{font-size:11px;color:var(--muted2);}
+.wallet-arrow{margin-left:auto;color:var(--muted);font-size:16px;}
+.wallet-option:hover .wallet-arrow{color:var(--btc);}
+.panels{min-height:calc(100vh - 54px);}
+.panel{display:none;}
+.panel.on{display:block;}
+.ticker{background:var(--bg2);border-bottom:1px solid var(--border);overflow:hidden;height:34px;display:flex;align-items:center;}
+.ticker-track{display:flex;white-space:nowrap;animation:tick 36s linear infinite;}
+.ticker-track:hover{animation-play-state:paused;}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-item{display:flex;align-items:center;gap:8px;padding:0 26px;font-size:11px;border-right:1px solid var(--border);height:34px;}
+.ticker-name{color:var(--muted2);font-weight:500;}
+.ticker-val{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+.ticker-ch{font-family:'IBM Plex Mono',monospace;font-size:10px;}
+.up{color:var(--greenl);}
+.dn{color:var(--redl);}
+.mkt-hero{background:var(--bg2);border-bottom:1px solid var(--border);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.mkt-hero-left h1{font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:1px;line-height:1.0;margin-bottom:5px;}
+.mkt-hero-left h1 span{color:var(--btc);}
+.mkt-hero-left p{font-size:12px;color:var(--muted2);max-width:440px;line-height:1.6;}
+.hero-stats{display:flex;gap:32px;}
+.hstat{text-align:right;}
+.hstat-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--btc);}
+.hstat-label{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-top:3px;}
+.mkt-controls{display:flex;align-items:center;gap:10px;padding:14px 32px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.search-box{position:relative;flex:1;max-width:320px;}
+.search-box input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px 9px 36px;font-size:12px;color:var(--text);font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;}
+.search-box input:focus{border-color:var(--border2);}
+.search-box input::placeholder{color:var(--muted);}
+.sico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none;}
+.ctrl-btn{background:var(--bg3);border:1px solid var(--border);color:var(--muted2);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:8px 15px;border-radius:var(--radius);cursor:pointer;transition:all .15s;user-select:none;}
+.ctrl-btn:hover,.ctrl-btn.on{border-color:var(--border3);color:var(--text);}
+.spacer{flex:1;}
+.ctrl-sel{background:var(--bg3);border:1px solid var(--border);color:var(--muted2);font-family:'Inter',sans-serif;font-size:11px;padding:8px 12px;border-radius:var(--radius);cursor:pointer;outline:none;}
+.tbl-wrap{padding:0 32px 40px;}
+.tbl-head{display:grid;grid-template-columns:44px 2.4fr 1fr 1fr 1fr 1fr 130px;gap:0;padding:10px 14px;margin-top:14px;}
+.tbl-head div{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;font-weight:500;cursor:pointer;user-select:none;transition:color .12s;}
+.tbl-head div:hover{color:var(--muted2);}
+.tbl-head div:not(:first-child){text-align:right;}
+.coll-row{display:grid;grid-template-columns:44px 2.4fr 1fr 1fr 1fr 1fr 130px;gap:0;padding:13px 14px;border-radius:10px;cursor:pointer;transition:background .12s;align-items:center;}
+.coll-row:hover{background:var(--bg3);}
+.rank-n{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);text-align:center;}
+.coll-info{display:flex;align-items:center;gap:13px;}
+.coll-thumb{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;border:1px solid var(--border);}
+.coll-meta .coll-name{font-size:13px;font-weight:600;margin-bottom:2px;}
+.coll-meta .coll-sub{font-size:11px;color:var(--muted2);}
+.cell{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);line-height:1.6;}
+.cell.orange{color:var(--btc);}
+.cell.green{color:var(--greenl);}
+.cell.red{color:var(--redl);}
+.chart-cell{display:flex;align-items:center;justify-content:flex-end;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;align-items:center;justify-content:center;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;width:620px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.modal-top{padding:24px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;}
+.modal-close{background:var(--bg4);border:1px solid var(--border);color:var(--muted2);width:32px;height:32px;border-radius:7px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.modal-close:hover{color:var(--text);border-color:var(--border2);}
+.modal-hero{display:flex;align-items:center;gap:18px;margin-bottom:22px;}
+.modal-thumb{width:68px;height:68px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid var(--border2);flex-shrink:0;}
+.modal-title{font-size:24px;font-weight:700;margin-bottom:4px;}
+.modal-chain{font-size:11px;color:var(--btc);letter-spacing:.6px;font-weight:600;}
+.modal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:0 26px 22px;}
+.mstat{background:var(--bg3);border-radius:9px;padding:13px 14px;}
+.mstat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+.mstat-val{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
+.mstat-val.orange{color:var(--btc);}
+.mstat-val.green{color:var(--greenl);}
+.chart-area{padding:0 26px 22px;}
+.chart-label{font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:.6px;text-transform:uppercase;}
+.modal-listings{padding:0 26px 26px;}
+.listings-title{font-size:11px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+.listing-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--bg3);border-radius:9px;margin-bottom:7px;}
+.listing-id{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted2);}
+.listing-price{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--btc);font-weight:600;}
+.listing-buy{background:var(--btc);color:#000;font-size:11px;font-weight:700;padding:7px 16px;border:none;border-radius:6px;cursor:pointer;transition:background .15s;}
+.listing-buy:hover{background:var(--btc2);}
+.launch-header{padding:28px 32px 22px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.launch-header h2{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;margin-bottom:5px;}
+.launch-header p{font-size:12px;color:var(--muted2);line-height:1.6;}
+.launch-tabs{display:flex;gap:4px;padding:14px 32px 0;border-bottom:1px solid var(--border);}
+.ltab{font-size:12px;font-weight:500;padding:8px 18px;border-radius:7px 7px 0 0;color:var(--muted2);cursor:pointer;border:1px solid transparent;border-bottom:none;transition:all .15s;user-select:none;}
+.ltab.on{color:var(--text);background:var(--bg3);border-color:var(--border);}
+.drops-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:26px 32px;}
+.drop-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;}
+.drop-card:hover{border-color:var(--border3);transform:translateY(-3px);}
+.drop-banner{height:190px;display:flex;align-items:center;justify-content:center;font-size:62px;position:relative;}
+.drop-banner.d1{background:linear-gradient(135deg,#120820,#2d0e55);}
+.drop-banner.d2{background:linear-gradient(135deg,#0d1f0d,#1a4a1a);}
+.drop-banner.d3{background:linear-gradient(135deg,#1f0d0d,#4a1a1a);}
+.drop-banner.d4{background:linear-gradient(135deg,#0d1a1f,#0e3d4a);}
+.drop-banner.d5{background:linear-gradient(135deg,#1a150d,#4a3a0e);}
+.drop-banner.d6{background:linear-gradient(135deg,#130d1f,#2e0e4a);}
+.status-badge{position:absolute;top:13px;left:13px;font-size:9px;font-weight:700;letter-spacing:1px;padding:4px 10px;border-radius:4px;text-transform:uppercase;}
+.badge-live{background:#16a34a;color:#fff;}
+.badge-soon{background:#1e293b;color:#94a3b8;border:1px solid #334155;}
+.badge-sold{background:#1f1f1f;color:var(--muted2);border:1px solid var(--border);}
+.drop-body{padding:16px 18px;}
+.drop-name{font-size:14px;font-weight:600;margin-bottom:3px;}
+.drop-by{font-size:11px;color:var(--muted2);margin-bottom:13px;}
+.progress-bar{background:var(--bg4);border-radius:3px;height:4px;width:100%;margin-bottom:7px;}
+.progress-fill{height:100%;border-radius:3px;background:var(--btc);}
+.drop-pct{display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-bottom:10px;}
+.drop-foot{display:flex;justify-content:space-between;align-items:center;}
+.drop-price{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--btc);font-weight:600;}
+.mint-btn{background:var(--btc);color:#000;font-family:'Inter',sans-serif;font-weight:700;font-size:11px;padding:7px 16px;border:none;border-radius:6px;cursor:pointer;transition:background .15s;}
+.mint-btn:hover{background:var(--btc2);}
+.mint-btn:disabled{background:var(--bg4);color:var(--muted);cursor:not-allowed;}
+.stats-wrap{padding:28px 32px 40px;}
+.stats-wrap h2{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;margin-bottom:5px;}
+.stats-wrap p{font-size:12px;color:var(--muted2);margin-bottom:24px;line-height:1.6;}
+.stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+.stat-card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px;}
+.stat-card-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--btc);margin-bottom:4px;}
+.stat-card-ch{font-size:11px;}
+.big-chart-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;}
+.big-chart-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;}
+.inscriptions-header{display:flex;align-items:center;justify-content:space-between;padding:18px 0 10px;}
+.inscriptions-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;}
+.inscriptions-title span{font-size:13px;font-family:'IBM Plex Mono',monospace;color:var(--btc);font-weight:400;}
+.refresh-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--muted2);font-family:'Inter',sans-serif;font-size:11px;padding:7px 14px;border-radius:6px;cursor:pointer;transition:all .15s;}
+.refresh-btn:hover{color:var(--text);border-color:var(--border3);}
+.empty-state{padding:36px;text-align:center;color:var(--muted2);font-size:13px;line-height:1.7;}
+.empty-state span{display:block;font-size:28px;margin-bottom:10px;}
+@media(max-width:900px){.drops-grid{grid-template-columns:repeat(2,1fr);}.hero-stats{gap:16px;}.stat-cards{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){
+  nav{padding:0 16px;}.mkt-hero{flex-direction:column;padding:18px 16px;}.mkt-hero-left h1{font-size:30px;}.hero-stats{justify-content:flex-start;}.mkt-controls{padding:12px 16px;}.tbl-wrap{padding:0 16px 30px;}.drops-grid{grid-template-columns:1fr;padding:18px 16px;}.stats-wrap{padding:20px 16px 30px;}.stat-cards{grid-template-columns:repeat(2,1fr);}.tbl-head{display:none;}.coll-row{grid-template-columns:32px 1fr auto;gap:8px;}.coll-row .cell:nth-child(4),.coll-row .cell:nth-child(5),.coll-row .chart-cell{display:none;}.modal-stats{grid-template-columns:repeat(2,1fr);}.launch-header{padding:20px 16px;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="#">
+    <span class="logo-ord">ORD</span><span class="logo-market">MARKET</span>
+    <span class="logo-tag">Bitcoin Ordinals</span>
+  </a>
+  <div class="nav-links">
+    <div class="nlink on" onclick="showPanel('market')">Marketplace</div>
+    <div class="nlink" onclick="showPanel('launch')">Launchpad</div>
+    <div class="nlink" onclick="showPanel('stats')">Stats</div>
+  </div>
+  <div class="nav-r">
+    <div class="btc-price">&#8383; <span id="btc-live">$66,480</span> <span id="btc-change" style="font-size:10px;margin-left:4px;color:#22c55e"></span></div>
+    <button class="btn-wallet" onclick="document.getElementById('wallet-overlay').classList.add('on')">Connect Wallet</button>
+  </div>
+</nav>
+
+<div class="panels">
+
+<div class="panel on" id="panel-market">
+  <div class="mkt-hero">
+    <div class="mkt-hero-left">
+      <h1>Bitcoin <span>Ordinals</span><br>Marketplace</h1>
+      <p>Trade, collect and discover inscribed art on Bitcoin. Real-time floor prices, volume and on-chain sales data.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-val" id="hero-vol">$14.8M</div><div class="hstat-label">24h Volume</div></div>
+      <div class="hstat"><div class="hstat-val" id="hero-sales">38,204</div><div class="hstat-label">Sales Today</div></div>
+      <div class="hstat"><div class="hstat-val">9,812</div><div class="hstat-label">Collections</div></div>
+    </div>
+  </div>
+  <div class="ticker"><div class="ticker-track" id="ticker-track"></div></div>
+  <div class="mkt-controls">
+    <div class="search-box">
+      <span class="sico">&#9906;</span>
+      <input id="search-input" placeholder="Search collections..." oninput="filterCollections()">
+    </div>
+    <div class="ctrl-btn on" onclick="filterCat(this,'all')">All</div>
+    <div class="ctrl-btn" onclick="filterCat(this,'art')">Art</div>
+    <div class="ctrl-btn" onclick="filterCat(this,'pfp')">PFP</div>
+    <div class="ctrl-btn" onclick="filterCat(this,'gaming')">Gaming</div>
+    <div class="ctrl-btn" onclick="filterCat(this,'text')">Text</div>
+    <div class="spacer"></div>
+    <select class="ctrl-sel" id="sort-sel" onchange="sortCollections()">
+      <option value="vol">Volume: High to Low</option>
+      <option value="floor">Floor: Low to High</option>
+      <option value="sales">Most Sales</option>
+      <option value="ch">Trending</option>
+    </select>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-head">
+      <div>#</div><div style="text-align:left">Collection</div>
+      <div>Floor Price</div><div>24h Volume</div><div>Total Vol</div><div>24h Sales</div>
+      <div style="text-align:right">7d Chart</div>
+    </div>
+    <div id="coll-list"></div>
+  </div>
+  <div class="tbl-wrap" id="live-inscriptions-section" style="display:none;">
+    <div class="inscriptions-header">
+      <div class="inscriptions-title">Recent Inscriptions <span>LIVE via Hiro API</span></div>
+      <button class="refresh-btn" onclick="loadLiveInscriptions()">&#8635; Refresh</button>
+    </div>
+    <div class="tbl-head">
+      <div>#</div><div style="text-align:left">Inscription</div>
+      <div>ID</div><div></div><div></div><div>Rarity</div>
+      <div style="text-align:right">Action</div>
+    </div>
+    <div id="live-inscriptions">
+      <div class="empty-state"><span>&#8383;</span>Connect your wallet to load live inscriptions.</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-launch">
+  <div class="launch-header">
+    <h2>Ordinals Launchpad</h2>
+    <p>Discover and mint the latest Bitcoin Ordinal collections — curated, verified, fully on-chain.</p>
+  </div>
+  <div class="launch-tabs">
+    <div class="ltab on" onclick="switchLtab(this)">Live Mints</div>
+    <div class="ltab" onclick="switchLtab(this)">Upcoming</div>
+    <div class="ltab" onclick="switchLtab(this)">Ended</div>
+  </div>
+  <div class="drops-grid" id="drops-grid"></div>
+</div>
+
+<div class="panel" id="panel-stats">
+  <div class="stats-wrap">
+    <h2>Market Stats</h2>
+    <p>Bitcoin Ordinals ecosystem overview — updated live</p>
+    <div class="stat-cards">
+      <div class="stat-card"><div class="stat-card-label">Total Volume</div><div class="stat-card-val">48,291 BTC</div><div class="stat-card-ch up">&#8593; +8.4% this week</div></div>
+      <div class="stat-card"><div class="stat-card-label">Total Inscriptions</div><div class="stat-card-val" style="color:var(--text)">72.4M</div><div class="stat-card-ch up">&#8593; +1.2M this week</div></div>
+      <div class="stat-card"><div class="stat-card-label">Active Traders</div><div class="stat-card-val" style="color:var(--text)">24,810</div><div class="stat-card-ch dn">&#8595; -3.1% this week</div></div>
+      <div class="stat-card"><div class="stat-card-label">Avg Sale Price</div><div class="stat-card-val">0.0082 BTC</div><div class="stat-card-ch up">&#8593; +2.7% this week</div></div>
+    </div>
+    <div class="big-chart-wrap">
+      <div class="big-chart-label">30-Day Volume (BTC)</div>
+      <canvas id="big-vol-chart" style="width:100%;height:200px;display:block;"></canvas>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modal-bg" onclick="closeModalBg(event)">
+  <div class="modal">
+    <div class="modal-top">
+      <div class="modal-hero">
+        <div class="modal-thumb" id="m-thumb"></div>
+        <div><div class="modal-title" id="m-title"></div><div class="modal-chain">&#8383; BITCOIN ORDINALS</div></div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('modal-bg').classList.remove('on')">&#10005;</button>
+    </div>
+    <div class="modal-stats" id="m-stats"></div>
+    <div class="chart-area">
+      <div class="chart-label">7-Day Floor Price (BTC)</div>
+      <canvas id="m-chart" style="width:100%;height:150px;display:block;"></canvas>
+    </div>
+    <div class="modal-listings">
+      <div class="listings-title">Active Listings</div>
+      <div id="m-listings"></div>
+    </div>
+  </div>
+</div>
+
+<div class="wallet-overlay" id="wallet-overlay" onclick="closeWalletOverlay(event)">
+  <div class="wallet-modal">
+    <div class="wallet-modal-top">
+      <div class="wallet-modal-title">Connect Wallet</div>
+      <button class="wallet-close" onclick="document.getElementById('wallet-overlay').classList.remove('on')">&#10005;</button>
+    </div>
+    <div class="wallet-modal-sub">Choose your Bitcoin wallet to start trading Ordinals on OrdMarket.</div>
+    <div class="wallet-option" onclick="connectWallet('UniSat')">
+      <div class="wallet-icon unisat">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="12" fill="#5B8DEF"/><text x="13" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Inter,sans-serif">U</text></svg>
+      </div>
+      <div><div class="wallet-name">UniSat Wallet</div><div class="wallet-desc">The #1 Bitcoin Ordinals wallet</div></div>
+      <span class="wallet-arrow">&#8250;</span>
+    </div>
+    <div class="wallet-option" onclick="connectWallet('Xverse')">
+      <div class="wallet-icon xverse">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect width="26" height="26" rx="7" fill="#7B2FBE"/><text x="13" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Inter,sans-serif">X</text></svg>
+      </div>
+      <div><div class="wallet-name">Xverse Wallet</div><div class="wallet-desc">Bitcoin, Ordinals &amp; STX support</div></div>
+      <span class="wallet-arrow">&#8250;</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let collections = [];       // final merged list (live + pinned)
+let sortedCollections = []; // current sort order
+let activeCategory = 'all';
+let liveBTCPrice = 66480;
+let connectedWallet = null;
+let connectedAddress = null;
+let connectedWalletType = null;
+let mChart = null;
+
+/* ═══════════════════════════════════════════
+   YOUR PINNED COLLECTIONS — always at #3 & #4
+═══════════════════════════════════════════ */
+const PINNED = [
+  { slug:'theunion',  name:'TheUnion', emoji:'\u{1F91D}', bg:'#0a0a1a', cat:'art', items:100,
+    floor:0.0071, vol24:0.29, totalVol:12.4, sales24:38, ch:17.6,
+    prices:[0.004,0.0045,0.005,0.0055,0.006,0.0065,0.0071] },
+  { slug:'voidlings', name:'Voidlings', emoji:'\u{1F311}', bg:'#120820', cat:'art', items:444,
+    floor:0.0052, vol24:0.34, totalVol:18.7, sales24:47, ch:22.1,
+    prices:[0.003,0.0035,0.004,0.0042,0.0048,0.005,0.0052] }
+];
+
+/* ═══════════════════════════════════════════
+   FALLBACK DATA — shown if Hiro API fails
+═══════════════════════════════════════════ */
+const FALLBACK = [
+  { slug:'nodemonkes',     name:'NodeMonkes',     emoji:'\u{1F9FF}', bg:'#0d200d', cat:'pfp',    items:10000, floor:0.148,  vol24:12.4, totalVol:3820, sales24:312, ch:-4.3,  prices:[0.162,0.158,0.155,0.151,0.149,0.147,0.148] },
+  { slug:'bitcoin-frogs',  name:'Bitcoin Frogs',  emoji:'\u26A1',    bg:'#1a1000', cat:'art',    items:9999,  floor:0.094,  vol24:8.1,  totalVol:2140, sales24:198, ch:9.7,   prices:[0.081,0.084,0.087,0.089,0.091,0.093,0.094] },
+  { slug:'ordinal-punks',  name:'Ordinal Punks',  emoji:'\u{1F52E}', bg:'#0d0d20', cat:'pfp',    items:100,   floor:0.82,   vol24:3.9,  totalVol:1890, sales24:12,  ch:14.2,  prices:[0.76,0.78,0.79,0.80,0.81,0.82,0.82] },
+  { slug:'taproot-wizards',name:'Taproot Wizards',emoji:'\u{1F30A}', bg:'#0a1a20', cat:'art',    items:2105,  floor:0.21,   vol24:2.8,  totalVol:940,  sales24:84,  ch:5.1,   prices:[0.18,0.19,0.195,0.20,0.205,0.208,0.21] },
+  { slug:'ocm-genesis',    name:'OCM Genesis',    emoji:'\u{1F98A}', bg:'#200a0a', cat:'pfp',    items:5000,  floor:0.062,  vol24:2.1,  totalVol:680,  sales24:133, ch:-8.4,  prices:[0.071,0.069,0.067,0.065,0.064,0.063,0.062] },
+  { slug:'bitmap',         name:'Bitmap',         emoji:'\u{1F3D4}', bg:'#0d150d', cat:'gaming', items:840000,floor:0.00041,vol24:1.8,  totalVol:420,  sales24:2804,ch:1.8,   prices:[0.00038,0.00039,0.00040,0.00040,0.00041,0.00041,0.00041] },
+  { slug:'skull-punks',    name:'Skull Punks',    emoji:'\u{1F480}', bg:'#1a0a1a', cat:'pfp',    items:666,   floor:0.031,  vol24:1.2,  totalVol:310,  sales24:76,  ch:-2.9,  prices:[0.034,0.033,0.032,0.032,0.031,0.031,0.031] },
+  { slug:'rare-pepe-ords', name:'Rare Pepe Ords', emoji:'\u{1F438}', bg:'#101000', cat:'text',   items:1759,  floor:0.019,  vol24:0.98, totalVol:180,  sales24:58,  ch:3.4,   prices:[0.017,0.017,0.018,0.018,0.019,0.019,0.019] },
+];
+
+const drops = [
+  {emoji:'\u{1F311}',bg:'d1',name:'Voidlings Genesis',by:'@oceanord28',status:'live',price:'0.005 BTC',minted:67,supply:444},
+  {emoji:'\u{1F310}',bg:'d2',name:'Sats Grid',by:'@satsgrid',status:'live',price:'0.002 BTC',minted:1204,supply:2100},
+  {emoji:'\u{1F534}',bg:'d3',name:'Inscribed Relics',by:'@relics',status:'soon',price:'0.003 BTC',minted:0,supply:500},
+  {emoji:'\u{1F9CA}',bg:'d4',name:'Frozen Epochs',by:'@frozep',status:'soon',price:'0.008 BTC',minted:0,supply:333},
+  {emoji:'\u{1F33F}',bg:'d5',name:'Herb Garden',by:'@hgarden',status:'sold',price:'0.001 BTC',minted:888,supply:888},
+  {emoji:'\u{1F47E}',bg:'d6',name:'Pixel Sats',by:'@pixsats',status:'sold',price:'0.0015 BTC',minted:4200,supply:4200},
+];
+
+/* ═══════════════════════════════════════════
+   BUILD COLLECTION LIST
+   — top 2 from live/fallback, then your 2
+     pinned, then rest of live/fallback
+═══════════════════════════════════════════ */
+function buildCollectionList(liveRows) {
+  const src = liveRows.length >= 4 ? liveRows : FALLBACK;
+  const top2   = src.slice(0, 2);
+  const bottom = src.slice(2, 8);
+
+  // Assign sequential integer IDs so openModal(id) always works
+  const all = [...top2, ...PINNED.map(p => ({ ...p, pinned:true })), ...bottom];
+  collections = all.map((c, i) => ({
+    ...c,
+    id: i,
+    floorUSD: Math.round((c.floor || 0) * liveBTCPrice),
+  }));
+  sortedCollections = [...collections];
+
+  buildTicker();
+  renderList();
+
+  // Update hero stats from live data if available
+  if (liveRows.length > 0) {
+    const totalVol24 = liveRows.reduce((s, c) => s + (c.vol24 || 0), 0);
+    const totalSales = liveRows.reduce((s, c) => s + (c.sales24 || 0), 0);
+    const volEl = document.getElementById('hero-vol');
+    const salEl = document.getElementById('hero-sales');
+    if (volEl) volEl.textContent = '$' + (totalVol24 * liveBTCPrice / 1e6).toFixed(1) + 'M';
+    if (salEl) salEl.textContent = totalSales.toLocaleString();
+  }
+}
+
+/* ═══════════════════════════════════════════
+   HIRO API — LIVE COLLECTIONS
+═══════════════════════════════════════════ */
+async function loadLiveCollections() {
+  document.getElementById('coll-list').innerHTML =
+    '<div style="padding:36px;text-align:center;color:var(--muted2);font-size:13px;"><div style="font-size:22px;margin-bottom:10px;">&#8987;</div>Loading live collections...</div>';
+
+  // Known display mappings for Hiro collection IDs
+  const META = {
+    'nodemonkes':      { emoji:'\u{1F9FF}', bg:'#0d200d', cat:'pfp' },
+    'bitcoin-frogs':   { emoji:'\u26A1',    bg:'#1a1000', cat:'art' },
+    'ordinal-punks':   { emoji:'\u{1F52E}', bg:'#0d0d20', cat:'pfp' },
+    'taproot-wizards': { emoji:'\u{1F30A}', bg:'#0a1a20', cat:'art' },
+    'ocm-genesis':     { emoji:'\u{1F98A}', bg:'#200a0a', cat:'pfp' },
+    'bitmap':          { emoji:'\u{1F3D4}', bg:'#0d150d', cat:'gaming' },
+    'skull-punks':     { emoji:'\u{1F480}', bg:'#1a0a1a', cat:'pfp' },
+  };
+
+  function metaFor(c) {
+    const id = (c.id || c.symbol || c.name || '').toLowerCase();
+    for (const [key, val] of Object.entries(META)) {
+      if (id.includes(key)) return val;
+    }
+    // generate a deterministic colour from name
+    let hash = 0;
+    for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffff;
+    const r = ((hash >> 16) & 0x3f).toString(16).padStart(2,'0');
+    const g = ((hash >> 8)  & 0x3f).toString(16).padStart(2,'0');
+    const b = (hash         & 0x3f).toString(16).padStart(2,'0');
+    return { emoji:'\u{1F4DC}', bg:`#${r}${g}${b}`, cat:'art' };
+  }
+
+  try {
+    const res = await fetch(
+      'https://api.hiro.so/ordinals/v1/collections?limit=10&offset=0',
+      { headers: { Accept: 'application/json' } }
+    );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    const results = data.results || data.collections || [];
+    if (results.length === 0) throw new Error('empty');
+
+    const liveRows = results.map(c => {
+      const m = metaFor(c);
+      const floorBTC   = c.floor_price   ? c.floor_price   / 1e8 : 0;
+      const vol24BTC   = c.volume_24h    ? c.volume_24h    / 1e8 : 0;
+      const totalVolBTC= c.total_volume  ? c.total_volume  / 1e8 : 0;
+      const sales24    = c.sales_24h     || c.tx_count_24h  || 0;
+      const ch         = c.floor_price_change_24h           || 0;
+      return {
+        slug:     c.id || c.symbol || '',
+        name:     c.name || c.id || 'Unknown',
+        by:       c.symbol ? '@' + c.symbol.toLowerCase() : '',
+        items:    c.supply || 0,
+        floor:    parseFloat(floorBTC.toFixed(6)),
+        vol24:    parseFloat(vol24BTC.toFixed(4)),
+        totalVol: parseFloat(totalVolBTC.toFixed(2)),
+        sales24,
+        ch:       parseFloat(ch.toFixed(2)),
+        prices:   makePriceHistory(floorBTC, ch),
+        ...m
+      };
+    });
+
+    buildCollectionList(liveRows);
+  } catch (err) {
+    console.warn('Hiro API unavailable, using fallback data:', err.message);
+    buildCollectionList([]); // triggers FALLBACK path
+  }
+}
+
+function makePriceHistory(current, change24h) {
+  const prices = [];
+  let p = current * (1 - (change24h / 100) * 2.5);
+  for (let i = 0; i < 6; i++) {
+    p += (current - p) * 0.3 + (Math.random() - 0.48) * current * 0.04;
+    prices.push(parseFloat(Math.max(p, 0.000001).toFixed(6)));
+  }
+  prices.push(current);
+  return prices;
+}
+
+/* ═══════════════════════════════════════════
+   TICKER
+═══════════════════════════════════════════ */
+function buildTicker() {
+  const track = document.getElementById('ticker-track');
+  const src = collections.length ? collections : PINNED;
+  const html = src.map(c =>
+    `<div class="ticker-item">
+      <span class="ticker-name">${c.name}</span>
+      <span class="ticker-val">${c.floor ? c.floor + ' BTC' : '&#8212;'}</span>
+      <span class="ticker-ch ${(c.ch||0) >= 0 ? 'up' : 'dn'}">${(c.ch||0) >= 0 ? '+' : ''}${(c.ch||0).toFixed(1)}%</span>
+    </div>`).join('');
+  track.innerHTML = html + html;
+}
+
+/* ═══════════════════════════════════════════
+   SPARKLINES
+═══════════════════════════════════════════ */
+function drawSpark(c) {
+  const cv = document.getElementById('spark-' + c.id);
+  if (!cv || !c.prices || c.prices.length < 2) return;
+  const ctx = cv.getContext('2d');
+  const d = c.prices;
+  const mn = Math.min(...d), mx = Math.max(...d), rng = mx - mn || 0.0001;
+  const w = cv.width, h = cv.height, pad = 3;
+  ctx.clearRect(0, 0, w, h);
+  const pts = d.map((v, i) => ({
+    x: pad + (w - 2*pad) * i / (d.length - 1),
+    y: h - pad - (h - 2*pad) * (v - mn) / rng
+  }));
+  const up = (c.ch || 0) >= 0;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, up ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.28)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = up ? '#22c55e' : '#ef4444';
+  ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════
+   COLLECTIONS TABLE
+═══════════════════════════════════════════ */
+function renderList() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = sortedCollections.filter(c => {
+    const catOk = activeCategory === 'all' || c.cat === activeCategory;
+    const srchOk = !q || c.name.toLowerCase().includes(q) || (c.by||'').toLowerCase().includes(q);
+    return catOk && srchOk;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('coll-list').innerHTML =
+      '<div style="padding:36px;text-align:center;color:var(--muted2);font-size:13px;">No collections found.</div>';
+    return;
+  }
+
+  document.getElementById('coll-list').innerHTML = filtered.map((c, i) => {
+    const floor    = c.floor    || 0;
+    const floorUSD = Math.round(floor * liveBTCPrice);
+    const vol24    = c.vol24    || 0;
+    const totalVol = c.totalVol || 0;
+    const sales24  = c.sales24  || 0;
+    const ch       = c.ch       || 0;
+    const badge    = c.pinned
+      ? '<span style="font-size:9px;background:rgba(247,147,26,0.15);color:var(--btc);border:1px solid rgba(247,147,26,0.3);padding:2px 7px;border-radius:4px;margin-left:6px;font-weight:600;letter-spacing:.4px;">YOURS</span>'
+      : '';
+    return `<div class="coll-row" onclick="openModal(${c.id})">
+      <div class="rank-n">${i+1}</div>
+      <div class="coll-info">
+        <div class="coll-thumb" style="background:linear-gradient(135deg,${c.bg},${c.bg}99)">${c.emoji}</div>
+        <div class="coll-meta">
+          <div class="coll-name">${c.name}${badge}</div>
+          <div class="coll-sub">${c.items ? c.items.toLocaleString()+' items' : '&#8212;'} &nbsp;&middot;&nbsp; ${c.by||''}</div>
+        </div>
+      </div>
+      <div class="cell orange">${floor > 0 ? floor+' BTC' : '&#8212;'}<br><span style="font-size:10px;color:var(--muted2)">${floor > 0 ? '$'+floorUSD.toLocaleString() : ''}</span></div>
+      <div class="cell">${vol24 > 0 ? vol24+' BTC' : '&#8212;'}</div>
+      <div class="cell">${totalVol > 0 ? totalVol+' BTC' : '&#8212;'}</div>
+      <div class="cell ${ch >= 0 ? 'green' : 'red'}">${sales24 > 0 ? sales24 : '&#8212;'}<br><span style="font-size:10px">${ch !== 0 ? (ch>=0?'+':'')+ch+'%' : ''}</span></div>
+      <div class="chart-cell"><canvas id="spark-${c.id}" width="120" height="38"></canvas></div>
+    </div>`;
+  }).join('');
+  setTimeout(() => filtered.forEach(c => drawSpark(c)), 40);
+}
+
+function filterCollections() { renderList(); }
+
+function filterCat(btn, cat) {
+  document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  activeCategory = cat;
+  renderList();
+}
+
+function sortCollections() {
+  const v = document.getElementById('sort-sel').value;
+  if (v === 'vol') {
+    const pinned = collections.filter(c => c.pinned);
+    const rest   = collections.filter(c => !c.pinned).sort((a,b) => b.vol24 - a.vol24);
+    sortedCollections = [...rest.slice(0,2), ...pinned, ...rest.slice(2)];
+  } else if (v === 'floor') {
+    sortedCollections = [...collections].sort((a,b) => a.floor - b.floor);
+  } else if (v === 'sales') {
+    sortedCollections = [...collections].sort((a,b) => b.sales24 - a.sales24);
+  } else {
+    sortedCollections = [...collections].sort((a,b) => b.ch - a.ch);
+  }
+  renderList();
+}
+
+/* ═══════════════════════════════════════════
+   COLLECTION MODAL — looks up by id property
+═══════════════════════════════════════════ */
+function openModal(id) {
+  const c = collections.find(x => x.id === id);
+  if (!c) return;
+  const thumb = document.getElementById('m-thumb');
+  thumb.style.background = `linear-gradient(135deg,${c.bg},${c.bg}99)`;
+  thumb.textContent = c.emoji;
+  document.getElementById('m-title').textContent = c.name;
+  document.getElementById('m-stats').innerHTML = `
+    <div class="mstat"><div class="mstat-label">Floor Price</div><div class="mstat-val orange">${c.floor||'&#8212;'} BTC</div></div>
+    <div class="mstat"><div class="mstat-label">24h Volume</div><div class="mstat-val">${c.vol24||'&#8212;'} BTC</div></div>
+    <div class="mstat"><div class="mstat-label">Total Volume</div><div class="mstat-val">${c.totalVol||'&#8212;'} BTC</div></div>
+    <div class="mstat"><div class="mstat-label">24h Sales</div><div class="mstat-val green">${c.sales24||'&#8212;'}</div></div>`;
+  document.getElementById('m-listings').innerHTML = [...Array(5)].map((_,i) => {
+    const pr = ((c.floor||0.001) * (1 + i * 0.04)).toFixed(5);
+    const n  = Math.floor(Math.random() * (c.items||100)) + 1;
+    return `<div class="listing-row">
+      <span class="listing-id">#${n} &nbsp;&middot;&nbsp; Inscription #${(Math.floor(Math.random()*50000000)+10000000)}</span>
+      <span class="listing-price">${pr} BTC</span>
+      <button class="listing-buy" onclick="handleListingBuy(this,'${c.name}','${pr}')">Buy</button>
+    </div>`;
+  }).join('');
+  document.getElementById('modal-bg').classList.add('on');
+  setTimeout(() => {
+    if (mChart) { mChart.destroy(); mChart = null; }
+    mChart = new Chart(document.getElementById('m-chart').getContext('2d'), {
+      type:'line',
+      data:{
+        labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        datasets:[{data:c.prices||[],borderColor:'#f7931a',backgroundColor:'rgba(247,147,26,0.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f7931a',pointBorderColor:'#080808',pointBorderWidth:2,fill:true,tension:0.4}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#555',font:{size:11}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#555',font:{size:11},callback:v=>v.toFixed(4)}}
+      }}
+    });
+  }, 80);
+}
+
+function handleListingBuy(btn, name, price) {
+  if (!connectedWallet) {
+    showToast('Connect your wallet to buy.','error');
+    document.getElementById('modal-bg').classList.remove('on');
+    document.getElementById('wallet-overlay').classList.add('on');
+    return;
+  }
+  initiateBuy(name, price);
+}
+
+function closeModalBg(e) {
+  if (e.target === document.getElementById('modal-bg'))
+    document.getElementById('modal-bg').classList.remove('on');
+}
+
+/* ═══════════════════════════════════════════
+   LAUNCHPAD
+═══════════════════════════════════════════ */
+function renderDrops() {
+  document.getElementById('drops-grid').innerHTML = drops.map(d => {
+    const pct = Math.round(d.minted / d.supply * 100);
+    const isLive = d.status === 'live', isSold = d.status === 'sold';
+    return `<div class="drop-card">
+      <div class="drop-banner ${d.bg}">
+        <div class="status-badge ${isLive?'badge-live':isSold?'badge-sold':'badge-soon'}">${isLive?'&#9679; LIVE':isSold?'SOLD OUT':'SOON'}</div>
+        <span style="font-size:58px">${d.emoji}</span>
+      </div>
+      <div class="drop-body">
+        <div class="drop-name">${d.name}</div>
+        <div class="drop-by">${d.by}</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="drop-pct"><span>${d.minted.toLocaleString()} minted</span><span>${pct}%</span></div>
+        <div class="drop-foot">
+          <div class="drop-price">${d.price}</div>
+          <button class="mint-btn" ${isSold?'disabled':''} onclick="handleMint('${d.name}','${d.status}')">
+            ${isSold?'Sold Out':isLive?'Mint Now':'Notify Me'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function handleMint(name, status) {
+  if (status === 'sold') return;
+  if (!connectedWallet) {
+    showToast('Connect your wallet to ' + (status==='live'?'mint':'get notified') + '.','info');
+    document.getElementById('wallet-overlay').classList.add('on');
+    return;
+  }
+  showToast(status==='live' ? 'Initiating mint for '+name+'...' : 'You will be notified when '+name+' goes live!', status==='live'?'info':'success');
+}
+
+/* ═══════════════════════════════════════════
+   STATS CHART
+═══════════════════════════════════════════ */
+function buildStatsChart() {
+  const ctx = document.getElementById('big-vol-chart').getContext('2d');
+  const labels = [...Array(30)].map((_,i) => { const d=new Date(); d.setDate(d.getDate()-29+i); return d.toLocaleDateString('en',{month:'short',day:'numeric'}); });
+  const data   = labels.map((_,i) => Math.round(700 + Math.random()*1400 + Math.sin(i/4)*300));
+  new Chart(ctx, {
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:'rgba(247,147,26,0.45)',borderColor:'#f7931a',borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      x:{grid:{display:false},ticks:{color:'#444',font:{size:9},maxRotation:0,maxTicksLimit:10}},
+      y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#444',font:{size:9},callback:v=>v+' BTC'}}
+    }}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   PANEL SWITCHING
+═══════════════════════════════════════════ */
+function showPanel(p) {
+  document.querySelectorAll('.panel').forEach(el => el.classList.remove('on'));
+  document.querySelectorAll('.nlink').forEach(el => el.classList.remove('on'));
+  document.getElementById('panel-'+p).classList.add('on');
+  document.querySelectorAll('.nlink')[{market:0,launch:1,stats:2}[p]].classList.add('on');
+  if (p === 'stats') setTimeout(buildStatsChart, 80);
+}
+
+function switchLtab(tab) {
+  document.querySelectorAll('.ltab').forEach(t => t.classList.remove('on'));
+  tab.classList.add('on');
+}
+
+/* ═══════════════════════════════════════════
+   WALLET
+═══════════════════════════════════════════ */
+function closeWalletOverlay(e) {
+  if (e.target === document.getElementById('wallet-overlay'))
+    document.getElementById('wallet-overlay').classList.remove('on');
+}
+
+async function connectWallet(type) {
+  document.getElementById('wallet-overlay').classList.remove('on');
+  const btn = document.querySelector('.btn-wallet');
+  try {
+    if (type === 'UniSat') {
+      if (!window.unisat) { showToast('UniSat extension not found. Please install it.','error'); return; }
+      const accounts = await window.unisat.requestAccounts();
+      connectedAddress = accounts[0]; connectedWalletType = 'UniSat';
+    } else {
+      if (!window.XverseProviders && !window.BitcoinProvider) { showToast('Xverse extension not found. Please install it.','error'); return; }
+      const provider = window.XverseProviders?.BitcoinProvider || window.BitcoinProvider;
+      const resp = await provider.request('getAccounts',{purposes:['ordinals','payment']});
+      connectedAddress = resp.result.find(a=>a.purpose==='ordinals')?.address || resp.result[0].address;
+      connectedWalletType = 'Xverse';
+    }
+    connectedWallet = type;
+    btn.textContent = '\u2713 ' + connectedAddress.slice(0,6) + '...' + connectedAddress.slice(-4);
+    btn.style.background = '#16a34a';
+    btn.style.color = '#fff';
+    showToast(type + ' wallet connected!','success');
+    document.getElementById('live-inscriptions-section').style.display = 'block';
+    loadLiveInscriptions();
+  } catch(e) {
+    showToast('Connection cancelled or failed.','error');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   HIRO API — LIVE INSCRIPTIONS
+═══════════════════════════════════════════ */
+async function loadLiveInscriptions() {
+  const wrap = document.getElementById('live-inscriptions');
+  wrap.innerHTML = '<div class="empty-state"><span>&#8987;</span>Loading live inscriptions...</div>';
+  try {
+    let data;
+    try {
+      const r = await fetch('http://localhost:3000/inscriptions?limit=12');
+      if (!r.ok) throw new Error('proxy down');
+      data = await r.json();
+    } catch {
+      const r = await fetch('https://api.hiro.so/ordinals/v1/inscriptions?limit=12&order_by=genesis_block_height&order=desc');
+      data = await r.json();
+    }
+    if (!data.results?.length) { wrap.innerHTML = '<div class="empty-state"><span>&#8383;</span>No inscriptions found.</div>'; return; }
+    wrap.innerHTML = data.results.map(i => {
+      const num   = Number(i.number).toLocaleString();
+      const short = i.id.slice(0,12)+'...';
+      const type  = i.content_type?.split('/')[0]?.slice(0,3).toUpperCase() || '?';
+      return `<div class="coll-row" style="cursor:default;">
+        <div class="rank-n">&#8383;</div>
+        <div class="coll-info">
+          <div class="coll-thumb" style="background:var(--bg4);font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted2);">${type}</div>
+          <div class="coll-meta">
+            <div class="coll-name">Inscription #${num}</div>
+            <div class="coll-sub">${i.content_type||'unknown'} &nbsp;&middot;&nbsp; Block ${Number(i.genesis_block_height).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="cell" style="font-size:11px;color:var(--muted2);">${short}</div>
+        <div class="cell"></div><div class="cell"></div>
+        <div class="cell orange" style="font-size:11px;">${i.sat_rarity||'common'}</div>
+        <div class="chart-cell">
+          <button onclick="initiateBuy('${i.id}','${num}')" style="background:var(--btc);color:#000;font-size:10px;font-weight:700;padding:5px 12px;border:none;border-radius:5px;cursor:pointer;">Buy</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    wrap.innerHTML = '<div class="empty-state"><span>&#9888;</span>Could not load inscriptions. Check your connection.</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════
+   BUY FLOW — PSBT
+   Calls backend server.js → wallet signs → broadcasts
+   Run: npm install && node server.js
+═══════════════════════════════════════════ */
+async function initiateBuy(inscriptionId, inscriptionNum) {
+  if (!connectedWallet) {
+    showToast('Connect your wallet first.','error');
+    document.getElementById('wallet-overlay').classList.add('on');
+    return;
+  }
+  showToast('Preparing transaction for Inscription #' + inscriptionNum + '...','info');
+  try {
+    const res = await fetch('http://localhost:3000/create-psbt', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({inscriptionId, buyer:connectedAddress, price:0.0005})
+    });
+    if (!res.ok) throw new Error('Backend unavailable — run: node server.js');
+    const {psbt} = await res.json();
+    let txid;
+    if (connectedWalletType === 'UniSat') {
+      txid = await window.unisat.pushPsbt(await window.unisat.signPsbt(psbt));
+    } else {
+      const prov = window.XverseProviders?.BitcoinProvider || window.BitcoinProvider;
+      txid = (await prov.request('signPsbt',{psbt,broadcast:true})).result.txid;
+    }
+    showToast('Sent! TXID: ' + txid.slice(0,16) + '...','success');
+  } catch(e) {
+    showToast(e.message || 'Transaction failed.','error');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   LIVE BTC PRICE — Binance primary, CoinCap fallback
+═══════════════════════════════════════════ */
+function updatePriceUI(price, change) {
+  liveBTCPrice = Math.round(price);
+  document.getElementById('btc-live').textContent = '$' + price.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('btc-live').style.color = change >= 0 ? '#22c55e' : '#ef4444';
+  const ch = document.getElementById('btc-change');
+  if (ch) { ch.textContent = (change>=0?'\u25b2':'\u25bc') + Math.abs(change).toFixed(2)+'%'; ch.style.color = change>=0?'#22c55e':'#ef4444'; }
+}
+
+async function fetchBTCPrice() {
+  try {
+    const [tr, sr] = await Promise.all([
+      fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT'),
+      fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT')
+    ]);
+    const t = await tr.json(), s = await sr.json();
+    updatePriceUI(parseFloat(t.price), parseFloat(s.priceChangePercent));
+    return;
+  } catch(e) {}
+  try {
+    const r = await fetch('https://api.coincap.io/v2/assets/bitcoin');
+    const d = await r.json();
+    updatePriceUI(parseFloat(d.data.priceUsd), parseFloat(d.data.changePercent24Hr));
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+function showToast(msg, type='info') {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:999;padding:13px 20px;border-radius:10px;font-size:13px;font-family:Inter,sans-serif;font-weight:500;max-width:320px;line-height:1.5;transition:opacity .3s;box-shadow:0 4px 24px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+  }
+  t.style.background = {success:'#16a34a',error:'#dc2626',info:'#1d4ed8'}[type]||'#1d4ed8';
+  t.style.color = '#fff'; t.style.opacity = '1'; t.textContent = msg;
+  clearTimeout(t._h); t._h = setTimeout(()=>{ t.style.opacity='0'; }, 4000);
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+renderDrops();
+fetchBTCPrice().then(() => loadLiveCollections());
+setInterval(fetchBTCPrice, 30000);
+setInterval(loadLiveCollections, 300000);
+
+/*
+  ── server.js (save separately, run: npm install && node server.js) ──
+  import express from "express"; import cors from "cors";
+  const app = express(); app.use(cors()); app.use(express.json());
+  app.post("/create-psbt", (req,res) => {
+    const {inscriptionId,buyer,price} = req.body;
+    // TODO: replace with real PSBT builder (bitcoinjs-lib / @scure/btc-signer)
+    res.json({ psbt: "cHNidP8BAHECAAAAA_REPLACE_WITH_REAL_PSBT" });
+  });
+  app.get("/inscriptions", async (req,res) => {
+    const r = await fetch("https://api.hiro.so/ordinals/v1/inscriptions?limit=12&order_by=genesis_block_height&order=desc");
+    res.json(await r.json());
+  });
+  app.get("/health", (_,res) => res.json({status:"ok"}));
+  app.listen(3000, () => console.log("OrdMarket backend: http://localhost:3000"));
+
+  ── package.json ──
+  { "name":"ordmarket-backend","version":"1.0.0","type":"module",
+    "scripts":{"start":"node server.js","dev":"node --watch server.js"},
+    "dependencies":{"express":"^4.18.2","cors":"^2.8.5"} }
+*/
+</script>
+</body>
+</html>
